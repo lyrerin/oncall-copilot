@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     )
 
     # --- 基础 ---
+    debug: bool = False
     app_name: str = "oncall-copilot"
     env: str = "dev"
     log_level: str = "INFO"
