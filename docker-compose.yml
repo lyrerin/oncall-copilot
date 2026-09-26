@@ -1,0 +1,118 @@
+# docker-compose.yml —— 本地开发用的基础设施编排
+#
+# 状态：骨架，未实现。
+# 实现位置：docs/03-代码指导-基础层.md 第 77 行起（§2 docker-compose.yml）。
+# 内容应包含：postgres(pgvector) / redis / langfuse 三个服务，
+#             以及 profile 分层启动的写法（同文档第 203 行起）。
+name: oncall-copilot
+
+x-app-env: &app-env
+  env_file: [.env]
+  depends_on:
+    postgres: { condition: service_healthy }
+    redis: { condition: service_healthy }
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16        # 官方带 pgvector 的镜像，别用纯 postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-oncall}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-oncall}
+      POSTGRES_DB: ${POSTGRES_DB:-oncall}
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-oncall} -d ${POSTGRES_DB:-oncall}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["6379:6379"]
+    volumes: ["redisdata:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  # ---------- MCP 服务层 ----------
+  mcp-logs:
+    profiles: ["mcp"]                    # 不带 profile 的服务默认不起，见下方「分层启动」
+    build: .
+    command: ["python", "-m", "mcp_servers.logs_server"]
+    <<: *app-env
+    ports: ["8001:8001"]
+
+  mcp-metrics:
+    profiles: ["mcp"]
+    build: .
+    command: ["python", "-m", "mcp_servers.metrics_server"]
+    <<: *app-env
+    ports: ["8002:8002"]
+
+  mcp-cmdb:
+    profiles: ["mcp"]
+    build: .
+    command: ["python", "-m", "mcp_servers.cmdb_server"]
+    <<: *app-env
+    ports: ["8003:8003"]
+
+  mcp-executor:
+    profiles: ["mcp"]
+    build: .
+    command: ["python", "-m", "mcp_servers.executor_server"]
+    <<: *app-env
+    ports: ["8004:8004"]
+
+  # ---------- 核心 ----------
+  api:
+    profiles: ["app"]
+    build: .
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    <<: *app-env
+    ports: ["8000:8000"]
+    volumes: ["./:/app"]
+
+  worker:
+    profiles: ["app"]
+    build: .
+    command: ["arq", "workers.diagnosis_worker.WorkerSettings"]
+    <<: *app-env
+    volumes: ["./:/app"]
+
+  # ---------- mock 生产环境（定时灌假告警） ----------
+  alertgen:
+    profiles: ["app"]
+    build: .
+    command: ["python", "-m", "mockenv.alertgen", "--interval", "120"]
+    <<: *app-env
+    volumes: ["./:/app"]
+
+  # ---------- 可观测 ----------
+  langfuse:
+    profiles: ["obs"]                    # 单个就吃 1GB+ 内存，W10 之前别起
+    image: langfuse/langfuse:2
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-oncall}:${POSTGRES_PASSWORD:-oncall}@postgres:5432/langfuse
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:-devsecret}
+      SALT: ${LANGFUSE_SALT:-devsalt}
+      NEXTAUTH_URL: http://localhost:3000
+      TELEMETRY_ENABLED: "false"
+    ports: ["3000:3000"]
+
+  ui:
+    profiles: ["app"]
+    build: .
+    command: ["streamlit", "run", "ui/approval_console.py",
+              "--server.port=8501", "--server.address=0.0.0.0"]
+    <<: *app-env
+    ports: ["8501:8501"]
+    volumes: ["./:/app"]
+
+volumes:
+  pgdata:
+  redisdata:

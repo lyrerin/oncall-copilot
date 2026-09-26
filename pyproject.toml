@@ -1,0 +1,48 @@
+# pyproject.toml
+[project]
+name = "oncall-copilot"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    # --- Web ---
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "sse-starlette>=2.1",
+    "python-multipart>=0.0.12",
+    # --- Agent ---
+    "langgraph>=0.2.60",
+    "langgraph-checkpoint-postgres>=2.0",
+    "langchain-core>=0.3.30",
+    "langchain-openai>=0.2.14",
+    # --- MCP ---
+    "mcp>=1.2",
+    "fastmcp>=2.0",
+    "langchain-mcp-adapters>=0.1.0",
+    # --- DB ---
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30",
+    "psycopg[binary,pool]>=3.2",     # checkpointer 用 psycopg3，不是 asyncpg
+    "pgvector>=0.3.6",
+    "alembic>=1.14",
+    # --- Infra ---
+    "redis>=5.2",
+    "arq>=0.26",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    # --- Obs ---
+    "langfuse>=3.0",
+    # --- UI ---
+    "streamlit>=1.41",
+    "httpx>=0.28",
+    "pandas>=2.2",
+    # --- Utils ---
+    "structlog>=24.4",
+    "tenacity>=9.0",
+    "grandalf>=0.8",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.25", "pytest-cov>=6.0", "ruff>=0.8", "mypy>=1.13"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
