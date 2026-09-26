@@ -46,3 +46,23 @@ dev = ["pytest>=8.3", "pytest-asyncio>=0.25", "pytest-cov>=6.0", "ruff>=0.8", "m
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+
+# --- 打包 ---
+# 根目录下 app/ mcp_servers/ mockenv/ workers/ tests/ 都是带 __init__.py 的顶层包，
+# setuptools 的自动发现看到多个候选会直接报
+# "Multiple top-level packages discovered in a flat-layout"，所以必须显式列出来。
+# 不含 tests/（测试代码不进镜像），也不含 ui/ eval/（它们没有 __init__.py，
+# 在容器里靠 WORKDIR /app 直接 `streamlit run ui/...` / `python -m eval.run_eval` 跑）。
+[tool.setuptools]
+packages = [
+    "app",
+    "app.agent",
+    "app.agent.nodes",
+    "app.api",
+    "app.db",
+    "app.obs",
+    "app.services",
+    "mcp_servers",
+    "mockenv",
+    "workers",
+]

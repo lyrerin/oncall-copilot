@@ -1,0 +1,40 @@
+# .dockerignore —— 别把宿主机的东西塞进镜像
+#
+# 重点两条：
+#   .venv/  —— Windows 的虚拟环境（472 MB，里面是 Scripts/python.exe，Linux 容器用不了），
+#              不排掉会被 `COPY . .` 打进镜像，还会盖住容器里的依赖
+#   .git/   —— 版本历史，镜像里不需要
+
+# --- 虚拟环境 / 依赖 ---
+.venv/
+venv/
+*.egg-info/
+
+# --- 版本控制 ---
+.git/
+.gitignore
+
+# --- Python 缓存 ---
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- 机密 ---
+.env
+
+# --- 文档 / 探针（跑代码不需要）---
+docs/
+spikes/
+
+# --- IDE / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- 日志 ---
+*.log
